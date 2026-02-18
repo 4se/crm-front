@@ -2,7 +2,7 @@ import React from 'react';
 import { Navbar, Nav, Button } from 'react-bootstrap';
 import { Plus, CarFront } from 'react-bootstrap-icons';
 
-const CarsFilter = ({ activeView, onViewChange, onAddCar }) => {
+const CarsFilter = ({ activeView, onViewChange, onAddCar, searchTerm, onSearchChange }) => {
   return (
     <Navbar bg="white" expand="lg" className="shadow-sm" style={{ margin: '12px 12px 0 12px' }}>
       {/* Убираем Container fluid и задаем стили напрямую */}
@@ -37,6 +37,17 @@ const CarsFilter = ({ activeView, onViewChange, onAddCar }) => {
               Требуют ремонта
             </Nav.Link>
           </Nav>
+
+          {/* поиск */}
+          <div className="d-flex align-items-center me-2" style={{ minWidth: '200px' }}>
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Поиск..."
+              value={searchTerm}
+              onChange={(e) => onSearchChange(e.target.value)}
+            />
+          </div>
           
           <Button 
             variant="primary" 
