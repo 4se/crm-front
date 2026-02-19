@@ -22,6 +22,8 @@ export const AuthProvider = ({ children }) => {
 
   const login = (username, password) => {
     // простая авторизация без сервера, в реальном приложении здесь бы вызывался API
+    // и проверялись бы переданные учётные данные. Мы просто храним их для
+    // формирования заголовка Basic Auth при последующих запросах.
     const avatarUrl = '/logo192.png';
     setUser({ username, password, avatarUrl });
   };
@@ -37,6 +39,15 @@ export const AuthProvider = ({ children }) => {
       {children}
     </AuthContext.Provider>
   );
+};
+
+/**
+ * Вспомогательная функция, возвращающая заголовок Authorization c Basic Auth
+ * для переданного пользователя. Можно использовать вне компонента/хука.
+ */
+export const getBasicAuthHeader = (user) => {
+  if (!user?.username || !user?.password) return {};
+  return { Authorization: 'Basic ' + btoa(`${user.username}:${user.password}`) };
 };
 
 export const useAuth = () => {

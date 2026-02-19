@@ -63,7 +63,7 @@ const CarCard = ({ car, columns, columnLabels, onEdit, onDelete }) => {
   const [open, setOpen] = useState(false);
 
   // поля для отображения в свернутом состоянии
-  const summaryFields = ['garage_number', 'ts_model', 'next_to_date', 'executor'];
+  const summaryFields = ['garage_number', 'ts_model', 'aspt_state', 'next_to_date', 'executor'];
 
   return (
     <Card className="mb-2" onClick={() => setOpen(!open)}>

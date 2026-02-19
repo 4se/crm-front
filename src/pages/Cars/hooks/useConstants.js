@@ -33,8 +33,8 @@ export const useConstants = () => {
         setLoading(true);
         setError(null);
 
-        const token = user?.token || localStorage.getItem('authToken');
-
+        // передаём объект пользователя в API-методы; заголовки будут
+        // сформированы внутри, если учётные данные присутствуют
         const [
           vehicleTypes,
           vehicleModels,
@@ -43,13 +43,22 @@ export const useConstants = () => {
           asptStates,
           executors
         ] = await Promise.all([
-          fetchVehicleTypes(token),
-          fetchVehicleModels(token),
-          fetchLocations(token),
-          fetchAsptTypes(token),
-          fetchAsptStates(token),
-          fetchExecutors(token)
+          fetchVehicleTypes(user),
+          fetchVehicleModels(user),
+          fetchLocations(user),
+          fetchAsptTypes(user),
+          fetchAsptStates(user),
+          fetchExecutors(user)
         ]);
+
+        console.log('Загруженные константы с сервера:', {
+          vehicleTypes,
+          vehicleModels,
+          locations,
+          asptTypes,
+          asptStates,
+          executors
+        });
 
         setConstants({
           vehicleTypes,

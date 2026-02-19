@@ -1,4 +1,5 @@
 import testDataCars from './testData.json';
+import { getBasicAuthHeader } from '../../../auth/AuthContext';
 
 // Простой переключатель между реальными данными API и тестовыми данными для разработки
 const USE_TEST_DATA = true; // Переключите на false для использования реального API
@@ -12,10 +13,7 @@ export const getCarData = async (user) => {
   }
 
   // Реальный API запрос
-  const headers = {};
-  if (user) {
-    headers['Authorization'] = 'Basic ' + btoa(`${user.username}:${user.password}`);
-  }
+  const headers = { ...getBasicAuthHeader(user) };
 
   const response = await fetch('https://api.diplom.miray-tech.ru/api/vehicles/', {
     method: 'GET',

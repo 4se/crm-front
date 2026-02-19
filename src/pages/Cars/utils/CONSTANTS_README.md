@@ -14,12 +14,12 @@
 
 ### API слой (`constantsApi.js`)
 Файл `src/pages/Cars/utils/constantsApi.js` содержит функции для загрузки констант с бекэнда:
-- `fetchVehicleTypes(token)` - загрузить типы ТС
-- `fetchLocations(token)` - загрузить локации
-- `fetchAsptTypes(token)` - загрузить типы АСПТ
-- `fetchAsptStates(token)` - загрузить состояния АСПТ
-- `fetchExecutors(token)` - загрузить исполнителей
-- `fetchAllConstants(token)` - загрузить все константы одновременно
+* `fetchVehicleTypes(user)` - загрузить типы ТС
+- `fetchLocations(user)` - загрузить локации
+- `fetchAsptTypes(user)` - загрузить типы АСПТ
+- `fetchAsptStates(user)` - загрузить состояния АСПТ
+- `fetchExecutors(user)` - загрузить исполнителей
+- `fetchAllConstants(user)` - загрузить все константы одновременно
 
 ### Custom Hook (`useConstants.js`)
 Hook `src/pages/Cars/hooks/useConstants.js` автоматически загружает все константы при монтировании компонента.
@@ -60,7 +60,7 @@ function MyComponent() {
 
   useEffect(() => {
     const loadTypes = async () => {
-      const data = await fetchVehicleTypes(user?.token);
+      const data = await fetchVehicleTypes(user);
       setTypes(data);
     };
     loadTypes();

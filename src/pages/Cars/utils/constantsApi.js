@@ -1,29 +1,46 @@
 /**
  * API для загрузки констант (выпадающих списков) с бекэнда
- * На будущее: замени эти функции на реальные API запросы к серверу
+ * В приложении теперь используется HTTP Basic Auth; функции принимают объект
+ * пользователя ({username, password}) и формируют заголовок авторизации.
+ *
+ * URL по умолчанию настроен на api.diplom.miray-tech.ru, но может быть
+ * переопределён через переменную окружения REACT_APP_API_URL.
  */
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+// базовый URL для запросов (если не задан в .env будет реальный сервер)
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://api.diplom.miray-tech.ru/api';
+
+// утилита формирования заголовков с Basic Auth
+const makeHeaders = (user) => {
+  const headers = { 'Content-Type': 'application/json' };
+  if (user?.username && user?.password) {
+    headers['Authorization'] = 'Basic ' + btoa(`${user.username}:${user.password}`);
+  }
+  return headers;
+};
 
 /**
  * Загрузить типы ТС с бекэнда
- * @param {string} token - JWT токен для авторизации
+ * @param {Object} user - объект пользователя с username и password
  * @returns {Promise<Array>} Массив типов ТС
  */
-export const fetchVehicleTypes = async (token) => {
+export const fetchVehicleTypes = async (user) => {
   try {
-    // TODO: Заменить на реальный API запрос
-    // const response = await fetch(`${API_BASE_URL}/vehicle-types`, {
-    //   headers: {
-    //     'Authorization': `Bearer ${token}`,
-    //     'Content-Type': 'application/json'
-    //   }
-    // });
-    // return await response.json();
+    const headers = makeHeaders(user);
+    const response = await fetch(`${API_BASE_URL}/vehicle-types`, { headers });
+    if (!response.ok) throw new Error('Ошибка загрузки типов ТС');
+    const data = await response.json();
+    console.log('Ответ сервера для vehicle-types:', data);
     
-    // На данный момент возвращаем локальные константы
-    const { VEHICLE_TYPES } = await import('./constants');
-    return VEHICLE_TYPES;
+    // трансформируем структуру (name → value)
+    const transformed = Array.isArray(data) 
+      ? data.map(item => ({
+          id: item.id,
+          value: item.name || item.value || ''
+        }))
+      : [];
+    
+    return transformed;
   } catch (error) {
     console.error('Ошибка загрузки типов ТС:', error);
     const { VEHICLE_TYPES } = await import('./constants');
@@ -33,22 +50,27 @@ export const fetchVehicleTypes = async (token) => {
 
 /**
  * Загрузить модели ТС с бекэнда
- * @param {string} token - JWT токен для авторизации
+ * @param {Object} user - объект пользователя с username и password
  * @returns {Promise<Array>} Массив моделей ТС
  */
-export const fetchVehicleModels = async (token) => {
+export const fetchVehicleModels = async (user) => {
   try {
-    // TODO: Заменить на реальный API запрос
-    // const response = await fetch(`${API_BASE_URL}/vehicle-models`, {
-    //   headers: {
-    //     'Authorization': `Bearer ${token}`,
-    //     'Content-Type': 'application/json'
-    //   }
-    // });
-    // return await response.json();
+    const headers = makeHeaders(user);
+    const response = await fetch(`${API_BASE_URL}/vehicle-models`, { headers });
+    if (!response.ok) throw new Error('Ошибка загрузки моделей ТС');
+    const data = await response.json();
+    console.log('Ответ сервера для vehicle-models:', data);
     
-    const { VEHICLE_MODELS } = await import('./constants');
-    return VEHICLE_MODELS;
+    // трансформируем структуру (name → value, brand_name → brand)
+    const transformed = Array.isArray(data) 
+      ? data.map(item => ({
+          id: item.id,
+          value: item.name || item.value || '',
+          brand: item.brand_name || item.brand || ''
+        }))
+      : [];
+    
+    return transformed;
   } catch (error) {
     console.error('Ошибка загрузки моделей ТС:', error);
     const { VEHICLE_MODELS } = await import('./constants');
@@ -58,22 +80,27 @@ export const fetchVehicleModels = async (token) => {
 
 /**
  * Загрузить локации с бекэнда
- * @param {string} token - JWT токен для авторизации
+ * @param {Object} user - объект пользователя с username и password
  * @returns {Promise<Array>} Массив локаций
  */
-export const fetchLocations = async (token) => {
+export const fetchLocations = async (user) => {
   try {
-    // TODO: Заменить на реальный API запрос
-    // const response = await fetch(`${API_BASE_URL}/locations`, {
-    //   headers: {
-    //     'Authorization': `Bearer ${token}`,
-    //     'Content-Type': 'application/json'
-    //   }
-    // });
-    // return await response.json();
+    // реальный endpoint указан в задании
+    const headers = makeHeaders(user);
+    const response = await fetch(`${API_BASE_URL}/directories/locations/`, { headers });
+    if (!response.ok) throw new Error('Ошибка загрузки локаций');
+    const data = await response.json();
+    console.log('Ответ сервера для locations:', data);
     
-    const { LOCATIONS } = await import('./constants');
-    return LOCATIONS;
+    // трансформируем структуру с сервера (name → value)
+    const transformed = Array.isArray(data) 
+      ? data.map(item => ({
+          id: item.id,
+          value: item.name || item.value || item.location_name || ''
+        }))
+      : [];
+    
+    return transformed;
   } catch (error) {
     console.error('Ошибка загрузки локаций:', error);
     const { LOCATIONS } = await import('./constants');
@@ -83,22 +110,25 @@ export const fetchLocations = async (token) => {
 
 /**
  * Загрузить типы АСПТ с бекэнда
- * @param {string} token - JWT токен для авторизации
+ * @param {Object} user - объект пользователя с username и password
  * @returns {Promise<Array>} Массив типов АСПТ
  */
-export const fetchAsptTypes = async (token) => {
+export const fetchAsptTypes = async (user) => {
   try {
-    // TODO: Заменить на реальный API запрос
-    // const response = await fetch(`${API_BASE_URL}/aspt-types`, {
-    //   headers: {
-    //     'Authorization': `Bearer ${token}`,
-    //     'Content-Type': 'application/json'
-    //   }
-    // });
-    // return await response.json();
+    const headers = makeHeaders(user);
+    const response = await fetch(`${API_BASE_URL}/directories/aspt-models/`, { headers });
+    if (!response.ok) throw new Error('Ошибка загрузки типов АСПТ');
+    const data = await response.json();
+    console.log('Ответ сервера для aspt-types:', data);
     
-    const { ASPT_TYPES } = await import('./constants');
-    return ASPT_TYPES;
+    const transformed = Array.isArray(data) 
+      ? data.map(item => ({
+          id: item.id,
+          value: item.manufacturer+" "+item.name || item.value || ''
+        }))
+      : [];
+    
+    return transformed;
   } catch (error) {
     console.error('Ошибка загрузки типов АСПТ:', error);
     const { ASPT_TYPES } = await import('./constants');
@@ -108,22 +138,25 @@ export const fetchAsptTypes = async (token) => {
 
 /**
  * Загрузить состояния АСПТ с бекэнда
- * @param {string} token - JWT токен для авторизации
+ * @param {Object} user - объект пользователя с username и password
  * @returns {Promise<Array>} Массив состояний АСПТ
  */
-export const fetchAsptStates = async (token) => {
+export const fetchAsptStates = async (user) => {
   try {
-    // TODO: Заменить на реальный API запрос
-    // const response = await fetch(`${API_BASE_URL}/aspt-states`, {
-    //   headers: {
-    //     'Authorization': `Bearer ${token}`,
-    //     'Content-Type': 'application/json'
-    //   }
-    // });
-    // return await response.json();
+    const headers = makeHeaders(user);
+    const response = await fetch(`${API_BASE_URL}/aspt-states`, { headers });
+    if (!response.ok) throw new Error('Ошибка загрузки состояний АСПТ');
+    const data = await response.json();
+    console.log('Ответ сервера для aspt-states:', data);
     
-    const { ASPT_STATES } = await import('./constants');
-    return ASPT_STATES;
+    const transformed = Array.isArray(data) 
+      ? data.map(item => ({
+          id: item.id,
+          value: item.name || item.value || ''
+        }))
+      : [];
+    
+    return transformed;
   } catch (error) {
     console.error('Ошибка загрузки состояний АСПТ:', error);
     const { ASPT_STATES } = await import('./constants');
@@ -133,22 +166,25 @@ export const fetchAsptStates = async (token) => {
 
 /**
  * Загрузить исполнителей с бекэнда
- * @param {string} token - JWT токен для авторизации
+ * @param {Object} user - объект пользователя с username и password
  * @returns {Promise<Array>} Массив исполнителей
  */
-export const fetchExecutors = async (token) => {
+export const fetchExecutors = async (user) => {
   try {
-    // TODO: Заменить на реальный API запрос
-    // const response = await fetch(`${API_BASE_URL}/executors`, {
-    //   headers: {
-    //     'Authorization': `Bearer ${token}`,
-    //     'Content-Type': 'application/json'
-    //   }
-    // });
-    // return await response.json();
+    const headers = makeHeaders(user);
+    const response = await fetch(`${API_BASE_URL}/executors`, { headers });
+    if (!response.ok) throw new Error('Ошибка загрузки исполнителей');
+    const data = await response.json();
+    console.log('Ответ сервера для executors:', data);
     
-    const { EXECUTORS } = await import('./constants');
-    return EXECUTORS;
+    const transformed = Array.isArray(data) 
+      ? data.map(item => ({
+          id: item.id,
+          value: item.name || item.value || ''
+        }))
+      : [];
+    
+    return transformed;
   } catch (error) {
     console.error('Ошибка загрузки исполнителей:', error);
     const { EXECUTORS } = await import('./constants');
@@ -158,10 +194,10 @@ export const fetchExecutors = async (token) => {
 
 /**
  * Загрузить все константы одновременно
- * @param {string} token - JWT токен для авторизации
+ * @param {Object} user - объект пользователя с username и password
  * @returns {Promise<Object>} Объект со всеми константами
  */
-export const fetchAllConstants = async (token) => {
+export const fetchAllConstants = async (user) => {
   try {
     const [
       vehicleTypes,
@@ -171,12 +207,12 @@ export const fetchAllConstants = async (token) => {
       asptStates,
       executors
     ] = await Promise.all([
-      fetchVehicleTypes(token),
-      fetchVehicleModels(token),
-      fetchLocations(token),
-      fetchAsptTypes(token),
-      fetchAsptStates(token),
-      fetchExecutors(token)
+      fetchVehicleTypes(user),
+      fetchVehicleModels(user),
+      fetchLocations(user),
+      fetchAsptTypes(user),
+      fetchAsptStates(user),
+      fetchExecutors(user)
     ]);
 
     return {

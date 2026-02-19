@@ -1,6 +1,6 @@
 import React from 'react';
-import { Modal, Button, Form } from 'react-bootstrap';
-import { VEHICLE_TYPES, VEHICLE_MODELS, LOCATIONS, ASPT_TYPES, ASPT_STATES, EXECUTORS } from '../../utils/constants';
+import { Modal, Button, Form, Spinner } from 'react-bootstrap';
+import { useConstants } from '../../hooks/useConstants';
 
 const CarForm = ({ 
   show, 
@@ -10,6 +10,17 @@ const CarForm = ({
   onChange,
   columnLabels = {}
 }) => {
+  // загружаем константы из API с fallback на локальные значения
+  const { 
+    vehicleTypes: VEHICLE_TYPES, 
+    vehicleModels: VEHICLE_MODELS, 
+    locations: LOCATIONS, 
+    asptTypes: ASPT_TYPES, 
+    asptStates: ASPT_STATES, 
+    executors: EXECUTORS,
+    loading: constantsLoading
+  } = useConstants();
+
   if (!car) return null;
 
   const isEditing = car.id !== null;
@@ -271,14 +282,22 @@ const CarForm = ({
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        <div className="row g-3">
-          {fieldOrder
-            .filter(key => key in car && key !== 'id')
-            .map(key => renderField(key))}
-        </div>
+        {constantsLoading ? (
+          <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '200px' }}>
+            <Spinner animation="border" role="status">
+              <span className="visually-hidden">Загрузка констант...</span>
+            </Spinner>
+          </div>
+        ) : (
+          <div className="row g-3">
+            {fieldOrder
+              .filter(key => key in car && key !== 'id')
+              .map(key => renderField(key))}
+          </div>
+        )}
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="primary" onClick={onSave}>
+        <Button variant="primary" onClick={onSave} disabled={constantsLoading}>
           Сохранить
         </Button>
         <Button variant="outline-secondary" onClick={onClose}>
