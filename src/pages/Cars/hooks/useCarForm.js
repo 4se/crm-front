@@ -5,7 +5,7 @@ export const useCarForm = (cars = []) => {
   const [showModal, setShowModal] = useState(false);
 
   const generateGarageNumber = () => {
-    if (!cars.length) return 'ГН-001';
+    if (!cars.length) return '001';
 
     const max = Math.max(
       ...cars.map(c =>
@@ -13,7 +13,7 @@ export const useCarForm = (cars = []) => {
       )
     );
 
-    return `ГН-${String(max + 1).padStart(3, '0')}`;
+    return String(max + 1).padStart(3, '0');
   };
 
   const handleAdd = () => {

@@ -22,20 +22,6 @@ const CarsFilter = ({ activeView, onViewChange, onAddCar, searchTerm, onSearchCh
             >
               Все записи
             </Nav.Link>
-            <Nav.Link 
-              active={activeView === 'working'}
-              onClick={() => onViewChange('working')}
-              style={{ cursor: 'pointer' }}
-            >
-              Исправные системы
-            </Nav.Link>
-            <Nav.Link 
-              active={activeView === 'repair'}
-              onClick={() => onViewChange('repair')}
-              style={{ cursor: 'pointer' }}
-            >
-              Требуют ремонта
-            </Nav.Link>
           </Nav>
 
           {/* поиск */}

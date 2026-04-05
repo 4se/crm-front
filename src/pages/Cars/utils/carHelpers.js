@@ -42,11 +42,6 @@ const convertValueToString = (value, key = '') => {
 export const filterCars = (cars, activeView, searchTerm = '', columns = []) => {
   let result = cars;
   
-  if (activeView === 'working') {
-    result = result.filter(car => car.systemStatus === 'Исправна');
-  } else if (activeView === 'repair') {
-    result = result.filter(car => car.systemStatus !== 'Исправна');
-  }
 
   if (searchTerm && searchTerm.trim()) {
     const lower = searchTerm.toLowerCase();

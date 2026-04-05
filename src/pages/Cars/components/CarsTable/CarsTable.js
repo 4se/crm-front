@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Card, Badge, Button, Collapse } from 'react-bootstrap';
+import { Table, Card, Badge, Button } from 'react-bootstrap';
 import { ASPT_STATE_COLORS, getDateColor } from '../../utils/constants';
 import TableRow from './TableRow';
 
@@ -60,50 +60,34 @@ const renderColoredCell = (car, key) => {
 
 // карточка для мобильных экранов
 const CarCard = ({ car, columns, columnLabels, onEdit, onDelete }) => {
-  const [open, setOpen] = useState(false);
-
-  // поля для отображения в свернутом состоянии
-  const summaryFields = ['garage_number', 'ts_model', 'aspt_state', 'next_to_date', 'executor'];
+  // поля для отображения в плитке
+  const displayFields = ['garage_number', 'ts_model', 'aspt_state', 'next_to_date', 'executor'];
 
   return (
-    <Card className="mb-2" onClick={() => setOpen(!open)}>
-      <Card.Body>
-        <div className="d-flex justify-content-between align-items-center">
-          <div className="flex-grow-1">
-            {summaryFields.map((field, idx) => {
-              if (!car.hasOwnProperty(field)) return null;
-              const value = renderColoredCell(car, field);
-              const label = columnLabels[field] || field;
-              
-              if (idx === 0) {
-                return <strong key={field}>{value}</strong>;
-              }
-              
-              return (
-                <div key={field} className="small text-muted">
-                  {label}: {value}
-                </div>
-              );
-            })}
-          </div>
+    <Card className="mb-2 h-100">
+      <Card.Body className="d-flex flex-column">
+        <div className="flex-grow-1">
+          {displayFields.map((field) => {
+            if (!car.hasOwnProperty(field)) return null;
+            const value = renderColoredCell(car, field);
+            const label = columnLabels[field] || field;
+            
+            return (
+              <div key={field} className="mb-1">
+                <small className="text-muted">{label}:</small><br />
+                <strong>{value}</strong>
+              </div>
+            );
+          })}
         </div>
-        <Collapse in={open}>
-          <div className="mt-2">
-            {columns.map(key => (
-              <p key={key} className="mb-1">
-                <strong>{columnLabels[key] || key}:</strong> {renderColoredCell(car, key)}
-              </p>
-            ))}
-            <div className="d-flex gap-1 mt-2">
-              <Button size="sm" variant="outline-primary" onClick={(e) => {e.stopPropagation(); onEdit(car);}}>
-                Ред.
-              </Button>
-              <Button size="sm" variant="outline-danger" onClick={(e) => {e.stopPropagation(); onDelete(car.id);}}>
-                Уд.
-              </Button>
-            </div>
-          </div>
-        </Collapse>
+        <div className="d-flex gap-1 mt-2">
+          <Button size="sm" variant="outline-primary" onClick={() => onEdit(car)}>
+            Ред.
+          </Button>
+          <Button size="sm" variant="outline-danger" onClick={() => onDelete(car.id)}>
+            Уд.
+          </Button>
+        </div>
       </Card.Body>
     </Card>
   );
@@ -111,14 +95,19 @@ const CarCard = ({ car, columns, columnLabels, onEdit, onDelete }) => {
 
 const CarsTable = ({ cars, columns = [], columnLabels = {}, onEdit, onDelete }) => {
   const tableMaxHeight = 'calc(100vh - 200px)';
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 576);
   // скрываем столбец id от отображения
   const visibleColumns = columns.filter(col => col !== 'id');
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const mediaQuery = window.matchMedia('(max-width: 575px)');
+    const handleChange = (e) => setIsMobile(e.matches);
+    
+    // Устанавливаем начальное значение
+    setIsMobile(mediaQuery.matches);
+    
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
   return (
@@ -133,7 +122,7 @@ const CarsTable = ({ cars, columns = [], columnLabels = {}, onEdit, onDelete }) 
       <Card.Body className="p-0 flex-grow-1 d-flex flex-column" style={{ minHeight: 0 }}>
         <div style={{ overflow: 'auto', flex: 1, maxHeight: tableMaxHeight }}>
           {isMobile ? (
-            <div className="p-2">
+            <div className="p-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '10px' }}>
               {cars.length ? (
                 cars.map(car => (
                   <CarCard
