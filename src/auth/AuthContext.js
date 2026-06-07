@@ -41,10 +41,6 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-/**
- * Вспомогательная функция, возвращающая заголовок Authorization c Basic Auth
- * для переданного пользователя. Можно использовать вне компонента/хука.
- */
 export const getBasicAuthHeader = (user) => {
   if (!user?.username || !user?.password) return {};
   return { Authorization: 'Basic ' + btoa(`${user.username}:${user.password}`) };

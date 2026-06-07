@@ -23,9 +23,7 @@ const Login = () => {
       setError('Пожалуйста, введите имя пользователя и пароль');
       return;
     }
-    // здесь могла бы быть проверка на сервере
     login(username, password);
-    // перенаправляем обратно к изначальному адресу или на /cars
     const redirectTo = location.state?.from?.pathname || '/cars';
     navigate(redirectTo, { replace: true });
   };

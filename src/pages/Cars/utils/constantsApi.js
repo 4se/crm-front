@@ -1,11 +1,3 @@
-/**
- * API для загрузки констант (выпадающих списков) с бекэнда
- * В приложении теперь используется HTTP Basic Auth; функции принимают объект
- * пользователя ({username, password}) и формируют заголовок авторизации.
- *
- * URL по умолчанию настроен на api.diplom.miray-tech.ru, но может быть
- * переопределён через переменную окружения REACT_APP_API_URL.
- */
 
 // базовый URL для запросов (если не задан в .env будет реальный сервер)
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://api.diplom.miray-tech.ru/api';
@@ -31,8 +23,7 @@ export const fetchVehicleTypes = async (user) => {
     if (!response.ok) throw new Error('Ошибка загрузки типов ТС');
     const data = await response.json();
     console.log('Ответ сервера для vehicle-types:', data);
-    
-    // трансформируем структуру (name → value)
+    1
     const transformed = Array.isArray(data) 
       ? data.map(item => ({
           id: item.id,
@@ -44,7 +35,7 @@ export const fetchVehicleTypes = async (user) => {
   } catch (error) {
     console.error('Ошибка загрузки типов ТС:', error);
     const { VEHICLE_TYPES } = await import('./constants');
-    return VEHICLE_TYPES; // fallback на локальные константы
+    return VEHICLE_TYPES; 
   }
 };
 

@@ -1,16 +1,47 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Nav, Button, Image } from 'react-bootstrap';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   House, Person, CarFront, List, ArrowLeft 
 } from 'react-bootstrap-icons';
 import { useAuth } from '../auth/AuthContext';
+import { Badge } from 'react-bootstrap';
+import { getCarData } from '../pages/Cars/utils/testDataHelper';
 
 const Sidebar = ({ isOpen, toggleSidebar, isMobile }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
   const { user } = useAuth();
+
+  const [hasOverdue, setHasOverdue] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      if (!user) {
+        if (mounted) setHasOverdue(false);
+        return;
+      }
+      try {
+        const cars = await getCarData(user);
+        if (!mounted) return;
+        const today = new Date();
+        const overdue = (cars || []).some(car => {
+          if (!car.next_to_date) return false;
+          const next = new Date(car.next_to_date);
+          return (next - today) < 0;
+        });
+        setHasOverdue(!!overdue);
+      } catch (err) {
+        console.error('Ошибка проверки просроченных ТО в сайдбаре:', err);
+        if (mounted) setHasOverdue(false);
+      }
+    };
+
+    load();
+    return () => { mounted = false; };
+  }, [user]);
 
   const menuItems = [
     { path: '/cars', icon: CarFront, label: 'Транспортные средства' },
@@ -186,6 +217,12 @@ const Sidebar = ({ isOpen, toggleSidebar, isMobile }) => {
                 className={isOpen ? 'me-2' : ''}
               />
               {isOpen && <span>Мой кабинет</span>}
+              {hasOverdue && isOpen && (
+                <Badge bg="danger" pill style={{ marginLeft: '8px' }}>!</Badge>
+              )}
+              {hasOverdue && !isOpen && (
+                <span style={{ width: 10, height: 10, background: 'red', borderRadius: '50%', display: 'inline-block', marginLeft: 6 }} />
+              )}
             </Button>
           </Nav.Item>
         </Nav>
