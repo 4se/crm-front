@@ -153,7 +153,7 @@ const createInitialWorkForm = () => ({
   executor_ids: ''
 });
 
-const ActModal = ({ show, user, vehicle, workEvents, onClose }) => {
+const ActModal = ({ show, user, vehicle, workEvents, onClose, onDataChanged }) => {
   const [form, setForm] = useState({
     customer: '',
     act_no: '',
@@ -232,6 +232,10 @@ const ActModal = ({ show, user, vehicle, workEvents, onClose }) => {
       if (!openDownloadedFile(pdf)) {
         setError('Сервер вернул PDF без файла или ссылки на скачивание.');
         return;
+      }
+
+      if (onDataChanged) {
+        await onDataChanged();
       }
 
       onClose();
@@ -330,7 +334,7 @@ const ActModal = ({ show, user, vehicle, workEvents, onClose }) => {
   );
 };
 
-const AddWorkModal = ({ show, user, vehicle, worksCatalog, onClose, onSaved }) => {
+const AddWorkModal = ({ show, user, vehicle, worksCatalog, onClose, onSaved, onDataChanged }) => {
   const [form, setForm] = useState(createInitialWorkForm);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
@@ -386,6 +390,9 @@ const AddWorkModal = ({ show, user, vehicle, worksCatalog, onClose, onSaved }) =
         todo_comment: form.todo_comment
       });
       onSaved();
+      if (onDataChanged) {
+        await onDataChanged();
+      }
       onClose();
     } catch (saveError) {
       console.error('Vehicle work saving error:', saveError);
@@ -511,7 +518,7 @@ const AddWorkModal = ({ show, user, vehicle, worksCatalog, onClose, onSaved }) =
   );
 };
 
-const VehicleHistoryModal = ({ show, car, user, onClose }) => {
+const VehicleHistoryModal = ({ show, car, user, onClose, onDataChanged }) => {
   const [summary, setSummary] = useState({ vehicle: null, works: [] });
   const [worksCatalog, setWorksCatalog] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -629,6 +636,7 @@ const VehicleHistoryModal = ({ show, car, user, onClose }) => {
         vehicle={vehicle}
         workEvents={summary.works}
         onClose={() => setShowActModal(false)}
+        onDataChanged={onDataChanged}
       />
 
       <AddWorkModal
@@ -638,6 +646,7 @@ const VehicleHistoryModal = ({ show, car, user, onClose }) => {
         worksCatalog={worksCatalog}
         onClose={() => setShowAddWorkModal(false)}
         onSaved={loadSummary}
+        onDataChanged={onDataChanged}
       />
     </>
   );

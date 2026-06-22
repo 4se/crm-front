@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useCars } from './hooks/useCars';
 import { useCarForm } from './hooks/useCarForm';
 import { filterCars } from './utils/carHelpers';
@@ -56,28 +56,25 @@ const Cars = () => {
   // --- Загружаем данные из API или тестовые данные ---
   const { user } = useAuth();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Импортируем помощник
-        const { getCarData } = await import('./utils/testDataHelper');
-        
-        const data = await getCarData(user);
-        setApiCars(data);
-        if (data && data.length) {
-          // Устанавливаем все ключи из первого элемента в начальные столбцы
-          setColumns(Object.keys(data[0]));
-        }
-      } catch (error) {
-        console.error('Ошибка загрузки данных:', error);
+  const reloadCars = useCallback(async () => {
+    try {
+      const { getCarData } = await import('./utils/testDataHelper');
+      const data = await getCarData(user);
+      setApiCars(data);
+      if (data && data.length) {
+        setColumns((prev) => Array.from(new Set([...prev, ...Object.keys(data[0])])));
       }
-    };
-
-    fetchData();
+    } catch (error) {
+      console.error('Ошибка загрузки данных:', error);
+    }
   }, [user]);
 
+  useEffect(() => {
+    reloadCars();
+  }, [reloadCars]);
+
   // передаём данные из API в useCars
-  const { cars, addCar, updateCar, deleteCar } = useCars(apiCars);
+  const { cars, deleteCar } = useCars(apiCars);
 
   // при добавлении/обновлении списка машин объединяем ключи,
   // не дублируя существующие колонки и сохраняя порядок
@@ -134,12 +131,6 @@ const Cars = () => {
   const filteredCars = filterCars(mainCars, activeView, searchTerm, columns);
 
   const handleSave = () => {
-    if (selectedCar.id === null) {
-      addCar(selectedCar);
-    } else {
-      updateCar(selectedCar);
-    }
-
     (async () => {
       try {
         const extractId = (v) => {
@@ -172,59 +163,58 @@ const Cars = () => {
           return;
         }
 
-        if (!Array.isArray(selectedCar.aspt_types) || selectedCar.aspt_types.length === 0) {
-          return;
+        if (Array.isArray(selectedCar.aspt_types) && selectedCar.aspt_types.length > 0) {
+          const asptModels = await fetchAsptModels(user);
+          const asptModelId = findAsptModelIdByName(asptModels, selectedCar.aspt_types[0]);
+
+          if (!asptModelId) {
+            console.error('ASPT model not found by name:', selectedCar.aspt_types[0]);
+            return;
+          }
+
+          const asptUnitId = await ensureAsptUnit(user, {
+            asptModelId,
+            note: selectedCar.comment || ''
+          });
+
+          if (!asptUnitId) {
+            console.error('Failed to resolve aspt unit id');
+            return;
+          }
+
+          const now = new Date();
+          const todaysDate = [
+            now.getFullYear(),
+            String(now.getMonth() + 1).padStart(2, '0'),
+            String(now.getDate()).padStart(2, '0')
+          ].join('-');
+
+          const installationPayload = {
+            vehicle: vehicleId,
+            aspt_unit: asptUnitId,
+            installed_at: todaysDate,
+            removed_at: null
+          };
+
+          const installationId =
+            selectedCar.installation_id ||
+            selectedCar.installation?.id ||
+            null;
+
+          await saveOrUpdateInstallation(
+            user,
+            vehicleId,
+            installationPayload,
+            installationId
+          );
         }
 
-        const asptModels = await fetchAsptModels(user);
-        const asptModelId = findAsptModelIdByName(asptModels, selectedCar.aspt_types[0]);
-
-        if (!asptModelId) {
-          console.error('ASPT model not found by name:', selectedCar.aspt_types[0]);
-          return;
-        }
-
-        const asptUnitId = await ensureAsptUnit(user, {
-          asptModelId,
-          note: selectedCar.comment || ''
-        });
-
-        if (!asptUnitId) {
-          console.error('Failed to resolve aspt unit id');
-          return;
-        }
-
-        const now = new Date();
-        const todaysDate = [
-          now.getFullYear(),
-          String(now.getMonth() + 1).padStart(2, '0'),
-          String(now.getDate()).padStart(2, '0')
-        ].join('-');
-
-        const installationPayload = {
-          vehicle: vehicleId,
-          aspt_unit: asptUnitId,
-          installed_at: todaysDate,
-          removed_at: null
-        };
-
-        const installationId =
-          selectedCar.installation_id ||
-          selectedCar.installation?.id ||
-          null;
-
-        await saveOrUpdateInstallation(
-          user,
-          vehicleId,
-          installationPayload,
-          installationId
-        );
+        await reloadCars();
+        handleClose();
       } catch (e) {
         console.error('Save failed:', e);
       }
     })();
-
-    handleClose();
   };
 
   const handleChange = (field, value) => {
@@ -287,6 +277,7 @@ const Cars = () => {
         columns={columns}
         columnLabels={columnLabels}
         onClose={() => setHistoryCar(null)}
+        onDataChanged={reloadCars}
       />
     </div>
   );
