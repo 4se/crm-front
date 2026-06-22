@@ -6,16 +6,34 @@ import { useAuth } from '../../auth/AuthContext';
 import CarsFilter from './components/CarsFilter/CarsFilter'; 
 import CarsTable from './components/CarsTable/CarsTable';     
 import CarForm from './components/CarForm/CarForm';
+import VehicleHistoryModal from './components/VehicleHistoryModal/VehicleHistoryModal';
+import { saveInstallation, updateInstallation, saveVehicle, updateVehicle, fetchAsptUnits } from './utils/constantsApi';
+
+
+// car.id || car.vehicle_id || car.vehicleId || 
+const getVehicleKey = (car) => car.garage_number;
+
+const getUniqueCars = (cars) => {
+  const uniqueCars = new Map();
+
+  cars.forEach((car) => {
+    uniqueCars.set(getVehicleKey(car), car);
+  });
+
+  return Array.from(uniqueCars.values());
+};
 
 const Cars = () => {
   const [activeView, setActiveView] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [apiCars, setApiCars] = useState([]);        // <-- данные из API
   const [columns, setColumns] = useState([]);
+  const [historyCar, setHistoryCar] = useState(null);
 
   // столбцы для отображения (русские метки)
   const [columnLabels, setColumnLabels] = useState({
     garage_number: 'Гаражный №',
+    customer: 'Заказчик',
     ts_type: 'Тип ТС',
     ts_model: 'Модель ТС',
     location: 'Местоположение',
@@ -102,10 +120,11 @@ const Cars = () => {
     handleAdd,
     handleEdit,
     handleClose
-  } = useCarForm(cars);
+  } = useCarForm(cars, user);
 
 
-  const filteredCars = filterCars(cars, activeView, searchTerm, columns);
+  const mainCars = getUniqueCars(cars);
+  const filteredCars = filterCars(mainCars, activeView, searchTerm, columns);
 
   const handleSave = () => {
     if (selectedCar.id === null) {
@@ -113,6 +132,92 @@ const Cars = () => {
     } else {
       updateCar(selectedCar);
     }
+
+    (async () => {
+      try {
+        const vehicle = selectedCar.id || selectedCar.vehicle_id || selectedCar.vehicleId || null;
+        const todaysDate = new Date().toISOString().slice(0, 10);
+
+        let asptModelId = null;
+        if (Array.isArray(selectedCar.aspt_types) && selectedCar.aspt_types.length > 0) {
+          const first = selectedCar.aspt_types[0];
+          if (first && typeof first === 'object') {
+            asptModelId = first.id || first.aspt_model || first.value_id || null;
+          } else if (typeof first === 'number') {
+            asptModelId = first;
+          } else if (typeof first === 'string') {
+            asptModelId = first;
+          }
+        } else if (selectedCar.aspt_model) {
+          asptModelId = selectedCar.aspt_model;
+        }
+
+        const asptUnits = await fetchAsptUnits(user);
+        const matchingUnit = asptUnits.find(unit => Number(unit.aspt_model) === Number(asptModelId));
+        const fallbackUnit = asptUnits[0];
+        const asptUnit = matchingUnit ? Number(matchingUnit.id) : (fallbackUnit ? Number(fallbackUnit.id) : null);
+
+        const payload = {
+          vehicle: Number(vehicle || 0),
+          aspt_unit: asptUnit,
+          installed_at: todaysDate,
+          removed_at: null
+        };
+
+        if (selectedCar.installation_id) {
+          await updateInstallation(user, selectedCar.installation_id, payload);
+        } else {
+          await saveInstallation(user, payload);
+        }
+      } catch (e) {
+        console.error('Installation save failed:', e);
+      }
+    })();
+
+    // Send vehicle data to backend (POST for new, PATCH for existing)
+    (async () => {
+      try {
+        console.log('=== VEHICLE ASYNC START ===');
+        const extractId = (v) => {
+          if (v == null) return 0;
+          if (typeof v === 'object') return Number(v.id || v.value || 0);
+          return Number(v) || 0;
+        };
+
+        const payload = {
+          customer: extractId(selectedCar.customer),
+          vehicle_type: extractId(selectedCar.ts_type),
+          vehicle_model: extractId(selectedCar.ts_model),
+          garage_no: selectedCar.garage_number || selectedCar.garage_no || '',
+          location: extractId(selectedCar.location),
+          is_active: typeof selectedCar.is_active === 'boolean' ? selectedCar.is_active : true,
+          comment_general: selectedCar.comment || ''
+        };
+
+        const vehicleId = selectedCar.id || selectedCar.vehicle_id || selectedCar.vehicleId;
+        
+        console.log('Sending vehicle request:', {
+          method: vehicleId ? 'PATCH' : 'POST',
+          vehicleId,
+          payload
+        });
+
+        // Use PATCH if vehicle has an id, otherwise POST
+        if (vehicleId) {
+          console.log('Calling updateVehicle with ID:', vehicleId);
+          await updateVehicle(user, vehicleId, payload);
+          console.log('updateVehicle success');
+        } else {
+          console.log('Calling saveVehicle');
+          await saveVehicle(user, payload);
+          console.log('saveVehicle success');
+        }
+        console.log('=== VEHICLE ASYNC END ===');
+      } catch (e) {
+        console.error('Vehicle save failed:', e);
+      }
+    })();
+
     handleClose();
   };
 
@@ -156,6 +261,7 @@ const Cars = () => {
           columnLabels={columnLabels}
           onEdit={handleEdit}
           onDelete={handleDelete}
+          onRowDoubleClick={setHistoryCar}
         />
       </div>
 
@@ -166,6 +272,15 @@ const Cars = () => {
         onClose={handleClose}
         onChange={handleChange}
         columnLabels={columnLabels}
+      />
+
+      <VehicleHistoryModal
+        show={Boolean(historyCar)}
+        car={historyCar}
+        user={user}
+        columns={columns}
+        columnLabels={columnLabels}
+        onClose={() => setHistoryCar(null)}
       />
     </div>
   );

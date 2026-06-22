@@ -51,6 +51,16 @@ export const useConstants = () => {
           fetchExecutors(user)
         ]);
 
+        // additionally load customers list
+        const customers = await (async () => {
+          try {
+            const { fetchCustomers } = await import('../utils/constantsApi');
+            return await fetchCustomers(user);
+          } catch (e) {
+            return [];
+          }
+        })();
+
         console.log('Загруженные константы с сервера:', {
           vehicleTypes,
           vehicleModels,
@@ -66,7 +76,8 @@ export const useConstants = () => {
           locations,
           asptTypes,
           asptStates,
-          executors
+          executors,
+          customers
         });
       } catch (err) {
         console.error('Ошибка загрузки констант:', err);

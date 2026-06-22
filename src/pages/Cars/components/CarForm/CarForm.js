@@ -18,6 +18,7 @@ const CarForm = ({
     asptTypes: ASPT_TYPES, 
     asptStates: ASPT_STATES, 
     executors: EXECUTORS,
+    customers: CUSTOMERS,
     loading: constantsLoading
   } = useConstants();
 
@@ -28,13 +29,14 @@ const CarForm = ({
   // основные поля - дополнительные роили состояния
   const fieldOrder = [
     'garage_number',
+    'customer',
     'ts_type',
     'ts_model',
     'location',
     'last_to_date',
     'next_to_date',
-    'aspt_types',
     'aspt_state',
+    'aspt_types',
     'comment',
     'executor'
   ];
@@ -149,6 +151,27 @@ const CarForm = ({
       );
     }
 
+    if (key === 'customer') {
+      const selectedValue = typeof value === 'object' && value?.id ? value.id : value;
+      return (
+        <div key={key} className="col-md-6">
+          <Form.Label>{label}</Form.Label>
+          <Form.Select
+            value={selectedValue}
+            onChange={(e) => {
+              const selected = CUSTOMERS.find(v => Number(v.id) === Number(e.target.value));
+              onChange(key, selected || e.target.value);
+            }}
+          >
+            <option value="">Выберите заказчика</option>
+            {Array.isArray(CUSTOMERS) && CUSTOMERS.map(item => (
+              <option key={item.id} value={item.id}>{item.name || item.value || item.id}</option>
+            ))}
+          </Form.Select>
+        </div>
+      );
+    }
+
     // обрабатываем разные типы данных
     if (key.includes('date')) {
       return (
@@ -215,7 +238,7 @@ const CarForm = ({
                 });
                 onChange(key, selectedItems);
               }}
-              size={3}
+              size={2}
             >
               {ASPT_TYPES.map(item => (
                 <option key={item.id} value={item.value}>{item.value}</option>
@@ -277,7 +300,7 @@ const CarForm = ({
     <Modal show={show} onHide={onClose} size="lg" centered scrollable>
       <Modal.Header closeButton className="bg-light">
         <Modal.Title>
-          {isEditing ? 'Редактирование' : 'Добавление'} 
+          {isEditing ? 'Редактирование ' : 'Добавление '} 
           записи: {car.garage_number || '-'}
         </Modal.Title>
       </Modal.Header>

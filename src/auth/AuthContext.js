@@ -43,7 +43,13 @@ export const AuthProvider = ({ children }) => {
 
 export const getBasicAuthHeader = (user) => {
   if (!user?.username || !user?.password) return {};
-  return { Authorization: 'Basic ' + btoa(`${user.username}:${user.password}`) };
+  const encodeUtf8ToBase64 = (str) =>
+    btoa(
+      encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p) =>
+        String.fromCharCode(parseInt(p, 16))
+      )
+    );
+  return { Authorization: 'Basic ' + encodeUtf8ToBase64(`${user.username}:${user.password}`) };
 };
 
 export const useAuth = () => {

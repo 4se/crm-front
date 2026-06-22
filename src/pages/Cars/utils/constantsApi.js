@@ -1,14 +1,265 @@
 
+import { getBasicAuthHeader } from '../../../auth/AuthContext';
+
 // базовый URL для запросов (если не задан в .env будет реальный сервер)
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://api.diplom.miray-tech.ru/api';
 
+export const CAR_API_ENDPOINTS = {
+  vehicles: `${API_BASE_URL}/assets/vehicles/view/`,
+  vehicleWorkSummary: (vehicleId) => `${API_BASE_URL}/assets/vehicles/${vehicleId}/work-summary/`,
+  worksCatalog: `${API_BASE_URL}/directories/works/`,
+  defectsCatalog: `${API_BASE_URL}/directories/defects/`,
+  saveAct: `${API_BASE_URL}/maintenance/acts/`,
+  actPdf: (actId) => `${API_BASE_URL}/reports/service-acts/${actId}/pdf/`,
+  saveVehicleWork: `${API_BASE_URL}/maintenance/events/`,
+  customers: `${API_BASE_URL}/customers/`,
+  installations: `${API_BASE_URL}/assets/installations/`,
+  asptUnits: `${API_BASE_URL}/assets/aspt-units/`,
+  vehiclesCreate: `${API_BASE_URL}/assets/vehicles/`
+};
+
 // утилита формирования заголовков с Basic Auth
 const makeHeaders = (user) => {
-  const headers = { 'Content-Type': 'application/json' };
-  if (user?.username && user?.password) {
-    headers['Authorization'] = 'Basic ' + btoa(`${user.username}:${user.password}`);
-  }
+  const headers = { 'Content-Type': 'application/json', ...getBasicAuthHeader(user) };
   return headers;
+};
+
+const makeDownloadHeaders = (user) => ({ ...getBasicAuthHeader(user) });
+
+const downloadResponse = async (response, fallbackName) => {
+  const contentType = response.headers.get('content-type') || '';
+  const disposition = response.headers.get('content-disposition') || '';
+  const fileNameMatch = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i);
+  const fileName = fileNameMatch ? decodeURIComponent(fileNameMatch[1]) : fallbackName;
+
+  if (contentType.includes('application/json')) {
+    const data = await response.json();
+    return {
+      type: 'json',
+      fileName: data.fileName || data.filename || fileName,
+      url: data.url || data.download_url || data.downloadUrl,
+      data
+    };
+  }
+
+  const blob = await response.blob();
+  return { type: 'blob', fileName, blob };
+};
+
+export const fetchVehicleWorkSummary = async (user, vehicleId) => {
+  const headers = makeHeaders(user);
+  const response = await fetch(CAR_API_ENDPOINTS.vehicleWorkSummary(vehicleId), {
+    method: 'GET',
+    headers
+  });
+
+  if (!response.ok) {
+    throw new Error(`Work summary API error: ${response.status}`);
+  }
+
+  return response.json();
+};
+
+export const fetchWorksCatalog = async (user) => {
+  const response = await fetch(CAR_API_ENDPOINTS.worksCatalog, {
+    method: 'GET',
+    headers: makeHeaders(user)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Works catalog API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return Array.isArray(data) ? data : data.results || data.works || [];
+};
+
+export const fetchDefects = async (user) => {
+  const response = await fetch(CAR_API_ENDPOINTS.defectsCatalog, {
+    method: 'GET',
+    headers: makeHeaders(user)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Defects catalog API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return Array.isArray(data) ? data : data.results || data.defects || [];
+};
+
+export const fetchCustomers = async (user) => {
+  const response = await fetch(CAR_API_ENDPOINTS.customers, {
+    method: 'GET',
+    headers: makeHeaders(user)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Customers API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return Array.isArray(data) ? data : data.results || [];
+};
+
+export const saveAct = async (user, payload) => {
+  const response = await fetch(CAR_API_ENDPOINTS.saveAct, {
+    method: 'POST',
+    headers: makeHeaders(user),
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (e) {
+      // ignore
+    }
+    const err = new Error(`Save act API error: ${response.status}`);
+    err.status = response.status;
+    err.responseData = data;
+    throw err;
+  }
+
+  return response.json();
+};
+
+export const fetchActPdf = async (user, actId) => {
+  const response = await fetch(CAR_API_ENDPOINTS.actPdf(actId), {
+    method: 'GET',
+    headers: makeDownloadHeaders(user)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Act PDF API error: ${response.status}`);
+  }
+
+  return downloadResponse(response, `act-${actId}.pdf`);
+};
+
+export const saveVehicleWork = async (user, payload) => {
+  const response = await fetch(CAR_API_ENDPOINTS.saveVehicleWork, {
+    method: 'POST',
+    headers: makeHeaders(user),
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    // try to parse JSON body with validation errors
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (e) {
+      // ignore parse errors
+    }
+    const err = new Error(`Save vehicle work API error: ${response.status}`);
+    err.status = response.status;
+    err.responseData = data;
+    throw err;
+  }
+
+  return response.json();
+};
+
+export const fetchAsptUnits = async (user) => {
+  const response = await fetch(CAR_API_ENDPOINTS.asptUnits, {
+    method: 'GET',
+    headers: makeHeaders(user)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Aspt units API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return Array.isArray(data) ? data : data.results || [];
+};
+
+export const saveInstallation = async (user, payload) => {
+  const response = await fetch(CAR_API_ENDPOINTS.installations, {
+    method: 'POST',
+    headers: makeHeaders(user),
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (e) {}
+    const err = new Error(`Save installation API error: ${response.status}`);
+    err.status = response.status;
+    err.responseData = data;
+    throw err;
+  }
+
+  return response.json();
+};
+
+export const updateInstallation = async (user, installationId, payload) => {
+  const url = `${CAR_API_ENDPOINTS.installations}${installationId}/`;
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers: makeHeaders(user),
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (e) {}
+    const err = new Error(`Update installation API error: ${response.status}`);
+    err.status = response.status;
+    err.responseData = data;
+    throw err;
+  }
+
+  return response.json();
+};
+
+export const saveVehicle = async (user, payload) => {
+  const response = await fetch(CAR_API_ENDPOINTS.vehiclesCreate, {
+    method: 'POST',
+    headers: makeHeaders(user),
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (e) {}
+    const err = new Error(`Save vehicle API error: ${response.status}`);
+    err.status = response.status;
+    err.responseData = data;
+    throw err;
+  }
+
+  return response.json();
+};
+
+export const updateVehicle = async (user, vehicleId, payload) => {
+  const url = `${CAR_API_ENDPOINTS.vehiclesCreate}${vehicleId}/`;
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers: makeHeaders(user),
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (e) {}
+    const err = new Error(`Update vehicle API error: ${response.status}`);
+    err.status = response.status;
+    err.responseData = data;
+    throw err;
+  }
+
+  return response.json();
 };
 
 /**
@@ -23,7 +274,6 @@ export const fetchVehicleTypes = async (user) => {
     if (!response.ok) throw new Error('Ошибка загрузки типов ТС');
     const data = await response.json();
     console.log('Ответ сервера для vehicle-types:', data);
-    1
     const transformed = Array.isArray(data) 
       ? data.map(item => ({
           id: item.id,
@@ -47,20 +297,37 @@ export const fetchVehicleTypes = async (user) => {
 export const fetchVehicleModels = async (user) => {
   try {
     const headers = makeHeaders(user);
-    const response = await fetch(`${API_BASE_URL}/vehicle-models`, { headers });
+    const response = await fetch(`${API_BASE_URL}/directories/vehicle-models/`, { headers });
     if (!response.ok) throw new Error('Ошибка загрузки моделей ТС');
     const data = await response.json();
     console.log('Ответ сервера для vehicle-models:', data);
-    
-    // трансформируем структуру (name → value, brand_name → brand)
-    const transformed = Array.isArray(data) 
-      ? data.map(item => ({
-          id: item.id,
-          value: item.name || item.value || '',
-          brand: item.brand_name || item.brand || ''
-        }))
-      : [];
-    
+    const items = Array.isArray(data) ? data : [];
+    // load full vehicle manufacturers list once
+    let manufacturers = [];
+    try {
+      const mr = await fetch(`${API_BASE_URL}/directories/vehicle-manufacturers/`, { headers });
+      if (mr.ok) {
+        const md = await mr.json();
+        manufacturers = Array.isArray(md) ? md : md.results || [];
+      }
+    } catch (e) {
+      // ignore errors
+    }
+
+    const manufacturersMap = manufacturers.reduce((acc, m) => {
+      acc[m.id] = m && (m.name || m.value) ? (m.name || m.value) : String(m.id);
+      return acc;
+    }, {});
+
+    const transformed = items.map(item => {
+      const brandName = manufacturersMap[item.manufacturer || item.brand] || item.brand_name || item.brand || '';
+      return {
+        id: item.id,
+        value: item.name || item.value || '',
+        brand: brandName
+      };
+    });
+
     return transformed;
   } catch (error) {
     console.error('Ошибка загрузки моделей ТС:', error);
@@ -111,14 +378,33 @@ export const fetchAsptTypes = async (user) => {
     if (!response.ok) throw new Error('Ошибка загрузки типов АСПТ');
     const data = await response.json();
     console.log('Ответ сервера для aspt-types:', data);
-    
-    const transformed = Array.isArray(data) 
-      ? data.map(item => ({
-          id: item.id,
-          value: item.manufacturer+" "+item.name || item.value || ''
-        }))
-      : [];
-    
+    const items = Array.isArray(data) ? data : [];
+    // load full manufacturers list once
+    let manufacturers = [];
+    try {
+      const mr = await fetch(`${API_BASE_URL}/directories/aspt-manufacturers/`, { headers });
+      if (mr.ok) {
+        const md = await mr.json();
+        manufacturers = Array.isArray(md) ? md : md.results || [];
+      }
+    } catch (e) {
+      // ignore manufacturer list load errors
+    }
+
+    const manufacturersMap = manufacturers.reduce((acc, m) => {
+      acc[m.id] = m && (m.name || m.value) ? (m.name || m.value) : String(m.id);
+      return acc;
+    }, {});
+
+    const transformed = items.map(item => {
+      const manuf = manufacturersMap[item.manufacturer] || (item.manufacturer && String(item.manufacturer)) || '';
+      const name = item.name || item.value || '';
+      return {
+        id: item.id,
+        value: [manuf, name].filter(Boolean).join(' ').trim()
+      };
+    });
+
     return transformed;
   } catch (error) {
     console.error('Ошибка загрузки типов АСПТ:', error);

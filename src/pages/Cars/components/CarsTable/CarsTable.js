@@ -3,19 +3,16 @@ import { Table, Card, Badge, Button } from 'react-bootstrap';
 import { ASPT_STATE_COLORS, getDateColor } from '../../utils/constants';
 import TableRow from './TableRow';
 
-// helper to render value - extracts 'value' key from nested objects
 const renderCellValue = (car, key) => {
   const val = car[key];
   if (val == null) return '';
-  
-  // специальная обработка для модели ТС - выводит "Brand Model"
+
   if (key === 'ts_model' && typeof val === 'object' && val !== null) {
     const brand = val.brand?.value || val.brand || '';
     const model = val.value || '';
     return brand && model ? `${brand} ${model}` : model || brand;
   }
-  
-  // если массив объектов - берем value из каждого
+
   if (Array.isArray(val)) {
     return val
       .map(item => {
@@ -26,52 +23,49 @@ const renderCellValue = (car, key) => {
       })
       .join(', ');
   }
-  
-  // если объект с ключом value - берем его значение
+
   if (typeof val === 'object' && val !== null) {
     if ('value' in val) {
       return val.value;
     }
-    // иначе JSON.stringify полностью
     return JSON.stringify(val);
   }
-  
+
   return val;
 };
 
-// helper для отображения ячеек с цветовыми индикаторами
 const renderColoredCell = (car, key) => {
   const cellValue = renderCellValue(car, key);
-  
-  // Окрашиваем состояние АСПТ
+
   if (key === 'aspt_state' && cellValue) {
     const color = ASPT_STATE_COLORS[cellValue] || 'secondary';
     return <Badge bg={color}>{cellValue}</Badge>;
   }
-  
-  // Окрашиваем дату следующего ТО
+
   if (key === 'next_to_date' && cellValue) {
     const color = getDateColor(car[key]);
     return <Badge bg={color}>{cellValue}</Badge>;
   }
-  
+
   return cellValue;
 };
 
-// карточка для мобильных экранов
-const CarCard = ({ car, columns, columnLabels, onEdit, onDelete }) => {
-  // поля для отображения в плитке
+const CarCard = ({ car, columnLabels, onEdit, onDelete, onDoubleClick }) => {
   const displayFields = ['garage_number', 'ts_model', 'aspt_state', 'next_to_date', 'executor'];
 
   return (
-    <Card className="mb-2 h-100">
+    <Card
+      className="mb-2 h-100"
+      onDoubleClick={() => onDoubleClick && onDoubleClick(car)}
+      style={{ cursor: onDoubleClick ? 'pointer' : 'default' }}
+    >
       <Card.Body className="d-flex flex-column">
         <div className="flex-grow-1">
           {displayFields.map((field) => {
-            if (!car.hasOwnProperty(field)) return null;
+            if (!Object.prototype.hasOwnProperty.call(car, field)) return null;
             const value = renderColoredCell(car, field);
             const label = columnLabels[field] || field;
-            
+
             return (
               <div key={field} className="mb-1">
                 <small className="text-muted">{label}:</small><br />
@@ -80,32 +74,45 @@ const CarCard = ({ car, columns, columnLabels, onEdit, onDelete }) => {
             );
           })}
         </div>
-        <div className="d-flex gap-1 mt-2">
-          <Button size="sm" variant="outline-primary" onClick={() => onEdit(car)}>
-            Ред.
-          </Button>
-          <Button size="sm" variant="outline-danger" onClick={() => onDelete(car.id)}>
-            Уд.
-          </Button>
-        </div>
+        {(onEdit || onDelete) && (
+          <div className="d-flex gap-1 mt-2">
+            {onEdit && (
+              <Button size="sm" variant="outline-primary" onClick={() => onEdit(car)}>
+                Ред.
+              </Button>
+            )}
+            {onDelete && (
+              <Button size="sm" variant="outline-danger" onClick={() => onDelete(car.id)}>
+                Уд.
+              </Button>
+            )}
+          </div>
+        )}
       </Card.Body>
     </Card>
   );
 };
 
-const CarsTable = ({ cars, columns = [], columnLabels = {}, onEdit, onDelete }) => {
+const CarsTable = ({
+  cars,
+  columns = [],
+  columnLabels = {},
+  onEdit,
+  onDelete,
+  onRowDoubleClick,
+  title
+}) => {
   const tableMaxHeight = 'calc(100vh - 200px)';
   const [isMobile, setIsMobile] = useState(window.innerWidth < 576);
-  // скрываем столбец id от отображения
-  const visibleColumns = columns.filter(col => col !== 'id');
+  const visibleColumns = columns.filter(col => col !== 'id' && col !== 'customer');
+  const hasActions = Boolean(onEdit || onDelete);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 575px)');
     const handleChange = (e) => setIsMobile(e.matches);
-    
-    // Устанавливаем начальное значение
+
     setIsMobile(mediaQuery.matches);
-    
+
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
@@ -114,7 +121,7 @@ const CarsTable = ({ cars, columns = [], columnLabels = {}, onEdit, onDelete }) 
     <Card className="shadow-sm flex-grow-1 d-flex flex-column">
       <Card.Header className="bg-white">
         <h5 className="mb-0">
-          Журнал транспортных средств
+          {title || 'Журнал транспортных средств'}
           <span className="text-muted ms-2">({cars.length})</span>
         </h5>
       </Card.Header>
@@ -124,14 +131,14 @@ const CarsTable = ({ cars, columns = [], columnLabels = {}, onEdit, onDelete }) 
           {isMobile ? (
             <div className="p-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '10px' }}>
               {cars.length ? (
-                cars.map(car => (
+                cars.map((car, index) => (
                   <CarCard
-                    key={car.id}
+                    key={`${car.id || 'row'}-${index}`}
                     car={car}
-                    columns={visibleColumns}
                     columnLabels={columnLabels}
                     onEdit={onEdit}
                     onDelete={onDelete}
+                    onDoubleClick={onRowDoubleClick}
                   />
                 ))
               ) : (
@@ -145,25 +152,26 @@ const CarsTable = ({ cars, columns = [], columnLabels = {}, onEdit, onDelete }) 
                   {visibleColumns.map(col => (
                     <th key={col}>{columnLabels[col] || col}</th>
                   ))}
-                  <th>Действия</th>
+                  {hasActions && <th>Действия</th>}
                 </tr>
               </thead>
 
               <tbody>
                 {cars.length ? (
-                  cars.map(car => (
+                  cars.map((car, index) => (
                     <TableRow
-                      key={car.id}
+                      key={`${car.id || 'row'}-${index}`}
                       car={car}
                       columns={visibleColumns}
                       columnLabels={columnLabels}
                       onEdit={onEdit}
                       onDelete={onDelete}
+                      onDoubleClick={onRowDoubleClick}
                     />
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={visibleColumns.length + 1} className="text-center py-4 text-muted">
+                    <td colSpan={visibleColumns.length + (hasActions ? 1 : 0)} className="text-center py-4 text-muted">
                       Нет данных
                     </td>
                   </tr>
