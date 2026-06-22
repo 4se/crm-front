@@ -7,7 +7,14 @@ import CarsFilter from './components/CarsFilter/CarsFilter';
 import CarsTable from './components/CarsTable/CarsTable';     
 import CarForm from './components/CarForm/CarForm';
 import VehicleHistoryModal from './components/VehicleHistoryModal/VehicleHistoryModal';
-import { saveInstallation, updateInstallation, saveVehicle, updateVehicle, fetchAsptUnits } from './utils/constantsApi';
+import {
+  saveOrUpdateInstallation,
+  saveVehicle,
+  updateVehicle,
+  fetchAsptModels,
+  findAsptModelIdByName,
+  ensureAsptUnit
+} from './utils/constantsApi';
 
 
 // car.id || car.vehicle_id || car.vehicleId || 
@@ -135,56 +142,13 @@ const Cars = () => {
 
     (async () => {
       try {
-        const vehicle = selectedCar.id || selectedCar.vehicle_id || selectedCar.vehicleId || null;
-        const todaysDate = new Date().toISOString().slice(0, 10);
-
-        let asptModelId = null;
-        if (Array.isArray(selectedCar.aspt_types) && selectedCar.aspt_types.length > 0) {
-          const first = selectedCar.aspt_types[0];
-          if (first && typeof first === 'object') {
-            asptModelId = first.id || first.aspt_model || first.value_id || null;
-          } else if (typeof first === 'number') {
-            asptModelId = first;
-          } else if (typeof first === 'string') {
-            asptModelId = first;
-          }
-        } else if (selectedCar.aspt_model) {
-          asptModelId = selectedCar.aspt_model;
-        }
-
-        const asptUnits = await fetchAsptUnits(user);
-        const matchingUnit = asptUnits.find(unit => Number(unit.aspt_model) === Number(asptModelId));
-        const fallbackUnit = asptUnits[0];
-        const asptUnit = matchingUnit ? Number(matchingUnit.id) : (fallbackUnit ? Number(fallbackUnit.id) : null);
-
-        const payload = {
-          vehicle: Number(vehicle || 0),
-          aspt_unit: asptUnit,
-          installed_at: todaysDate,
-          removed_at: null
-        };
-
-        if (selectedCar.installation_id) {
-          await updateInstallation(user, selectedCar.installation_id, payload);
-        } else {
-          await saveInstallation(user, payload);
-        }
-      } catch (e) {
-        console.error('Installation save failed:', e);
-      }
-    })();
-
-    // Send vehicle data to backend (POST for new, PATCH for existing)
-    (async () => {
-      try {
-        console.log('=== VEHICLE ASYNC START ===');
         const extractId = (v) => {
           if (v == null) return 0;
           if (typeof v === 'object') return Number(v.id || v.value || 0);
           return Number(v) || 0;
         };
 
-        const payload = {
+        const vehiclePayload = {
           customer: extractId(selectedCar.customer),
           vehicle_type: extractId(selectedCar.ts_type),
           vehicle_model: extractId(selectedCar.ts_model),
@@ -194,27 +158,69 @@ const Cars = () => {
           comment_general: selectedCar.comment || ''
         };
 
-        const vehicleId = selectedCar.id || selectedCar.vehicle_id || selectedCar.vehicleId;
-        
-        console.log('Sending vehicle request:', {
-          method: vehicleId ? 'PATCH' : 'POST',
-          vehicleId,
-          payload
+        let vehicleId = selectedCar.id || selectedCar.vehicle_id || selectedCar.vehicleId;
+        if (vehicleId) {
+          await updateVehicle(user, vehicleId, vehiclePayload);
+        } else {
+          const savedVehicle = await saveVehicle(user, vehiclePayload);
+          vehicleId = savedVehicle.id || savedVehicle.vehicle_id || savedVehicle.pk;
+        }
+
+        vehicleId = Number(vehicleId);
+        if (!vehicleId) {
+          console.error('Vehicle save failed: no vehicle id returned');
+          return;
+        }
+
+        if (!Array.isArray(selectedCar.aspt_types) || selectedCar.aspt_types.length === 0) {
+          return;
+        }
+
+        const asptModels = await fetchAsptModels(user);
+        const asptModelId = findAsptModelIdByName(asptModels, selectedCar.aspt_types[0]);
+
+        if (!asptModelId) {
+          console.error('ASPT model not found by name:', selectedCar.aspt_types[0]);
+          return;
+        }
+
+        const asptUnitId = await ensureAsptUnit(user, {
+          asptModelId,
+          note: selectedCar.comment || ''
         });
 
-        // Use PATCH if vehicle has an id, otherwise POST
-        if (vehicleId) {
-          console.log('Calling updateVehicle with ID:', vehicleId);
-          await updateVehicle(user, vehicleId, payload);
-          console.log('updateVehicle success');
-        } else {
-          console.log('Calling saveVehicle');
-          await saveVehicle(user, payload);
-          console.log('saveVehicle success');
+        if (!asptUnitId) {
+          console.error('Failed to resolve aspt unit id');
+          return;
         }
-        console.log('=== VEHICLE ASYNC END ===');
+
+        const now = new Date();
+        const todaysDate = [
+          now.getFullYear(),
+          String(now.getMonth() + 1).padStart(2, '0'),
+          String(now.getDate()).padStart(2, '0')
+        ].join('-');
+
+        const installationPayload = {
+          vehicle: vehicleId,
+          aspt_unit: asptUnitId,
+          installed_at: todaysDate,
+          removed_at: null
+        };
+
+        const installationId =
+          selectedCar.installation_id ||
+          selectedCar.installation?.id ||
+          null;
+
+        await saveOrUpdateInstallation(
+          user,
+          vehicleId,
+          installationPayload,
+          installationId
+        );
       } catch (e) {
-        console.error('Vehicle save failed:', e);
+        console.error('Save failed:', e);
       }
     })();
 

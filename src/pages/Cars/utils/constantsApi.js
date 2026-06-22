@@ -176,6 +176,144 @@ export const fetchAsptUnits = async (user) => {
   return Array.isArray(data) ? data : data.results || [];
 };
 
+export const fetchAsptModels = async (user) => {
+  const response = await fetch(`${API_BASE_URL}/directories/aspt-models/`, {
+    method: 'GET',
+    headers: makeHeaders(user)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Aspt models API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return Array.isArray(data) ? data : data.results || [];
+};
+
+export const findAsptModelIdByName = (asptModels, asptType) => {
+  if (!asptType || !Array.isArray(asptModels) || asptModels.length === 0) {
+    return null;
+  }
+
+  let searchName = '';
+  if (typeof asptType === 'object') {
+    searchName = (asptType.name || asptType.value || '').trim();
+  } else if (typeof asptType === 'string') {
+    searchName = asptType.trim();
+  }
+
+  if (!searchName) {
+    return null;
+  }
+
+  const exactMatch = asptModels.find((model) => model.name === searchName);
+  if (exactMatch) {
+    return exactMatch.id;
+  }
+
+  const partialMatch = asptModels.find(
+    (model) =>
+      model.name &&
+      (searchName.endsWith(model.name) || searchName.includes(model.name))
+  );
+
+  return partialMatch ? partialMatch.id : null;
+};
+
+export const createAsptUnit = async (user, payload) => {
+  const response = await fetch(CAR_API_ENDPOINTS.asptUnits, {
+    method: 'POST',
+    headers: makeHeaders(user),
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (e) {}
+    const err = new Error(`Create aspt unit API error: ${response.status}`);
+    err.status = response.status;
+    err.responseData = data;
+    throw err;
+  }
+
+  return response.json();
+};
+
+export const ensureAsptUnit = async (user, { asptModelId, note = '' }) => {
+  const serialNo = String(asptModelId);
+
+  try {
+    const created = await createAsptUnit(user, {
+      aspt_model: asptModelId,
+      serial_no: serialNo,
+      note
+    });
+    const unitId = Number(created.id || created.pk);
+    if (!unitId) {
+      throw new Error('Create aspt unit response has no id');
+    }
+    return unitId;
+  } catch (e) {
+    const isDuplicate = e.status === 400 && e.responseData?.serial_no;
+    if (!isDuplicate) {
+      throw e;
+    }
+
+    const units = await fetchAsptUnits(user);
+    const existing = units.find(
+      (unit) => unit.serial_no === serialNo || Number(unit.aspt_model) === Number(asptModelId)
+    );
+    if (existing) {
+      return Number(existing.id);
+    }
+
+    throw e;
+  }
+};
+
+export const fetchInstallations = async (user) => {
+  const response = await fetch(CAR_API_ENDPOINTS.installations, {
+    method: 'GET',
+    headers: makeHeaders(user)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Installations API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return Array.isArray(data) ? data : data.results || [];
+};
+
+export const findInstallationIdForVehicle = (installations, vehicleId) => {
+  const active = installations.find(
+    (item) => Number(item.vehicle) === Number(vehicleId) && !item.removed_at
+  );
+  if (active) {
+    return active.id;
+  }
+
+  const existing = installations.find((item) => Number(item.vehicle) === Number(vehicleId));
+  return existing ? existing.id : null;
+};
+
+export const saveOrUpdateInstallation = async (user, vehicleId, payload, installationId = null) => {
+  let resolvedId = installationId;
+
+  if (!resolvedId) {
+    const installations = await fetchInstallations(user);
+    resolvedId = findInstallationIdForVehicle(installations, vehicleId);
+  }
+
+  if (resolvedId) {
+    return updateInstallation(user, resolvedId, payload);
+  }
+
+  return saveInstallation(user, payload);
+};
+
 export const saveInstallation = async (user, payload) => {
   const response = await fetch(CAR_API_ENDPOINTS.installations, {
     method: 'POST',
